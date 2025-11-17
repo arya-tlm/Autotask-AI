@@ -205,10 +205,14 @@ TIME & ANALYSIS QUERIES (use aggregate_time):
 - "Total hours by technician?" → use aggregate_time with group_by="resource_id"
 - "Time spent per company?" → use aggregate_time with group_by="company_id"
 
-COMMON ISSUES & CONTENT ANALYSIS (NEW):
+TICKET ANALYSIS & CONTENT QUERIES (FLEXIBLE - understands many ways to ask):
 - "What are common issues?" → use analyze_common_issues
 - "Most frequent problems?" → use analyze_common_issues
 - "What issues does company X have?" → use analyze_common_issues with company_name filter
+- "Summary of [company] tickets" → use analyze_common_issues with company_name filter
+- "Tell me about [company] tickets" → use analyze_common_issues with company_name filter
+- "What's going on with [company/tech/contact]?" → use analyze_common_issues with appropriate filter
+- "Give me [company] summary" → use analyze_common_issues with company_name filter
 - "Common problems in open tickets?" → use analyze_common_issues with is_open: true
 - "What are people complaining about?" → use analyze_common_issues
 - "Analyze ticket descriptions" → use analyze_common_issues
