@@ -1,10 +1,3 @@
-"""
-Final Improved AI Service
-Full support for resources, contacts, and name columns in tickets
-✅ NEW: Vector search capability added for semantic queries
-✅ NEW: Lookup table support for dynamic status, priority, type, category, queue labels
-✅ NEW: Common issues analysis - analyzes ticket titles & descriptions to identify patterns
-"""
 import json
 import logging
 import math
@@ -205,6 +198,16 @@ TIME & ANALYSIS QUERIES (use aggregate_time):
 - "Total hours by technician?" → use aggregate_time with group_by="resource_id"
 - "Time spent per company?" → use aggregate_time with group_by="company_id"
 
+CRITICAL - NAME-SPECIFIC TIME QUERIES (ALWAYS filter by name when a person is mentioned):
+- "How much time did [NAME] work?" → aggregate_time with group_by="resource_id", resource_name="[NAME]"
+- "Hours worked by [NAME]?" → aggregate_time with group_by="resource_id", resource_name="[NAME]"
+- "[NAME]'s time on tickets" → aggregate_time with group_by="ticket_id", resource_name="[NAME]"
+- "Time [NAME] spent" → aggregate_time with group_by="ticket_id", resource_name="[NAME]"
+- "What did [NAME] work on?" → aggregate_time with group_by="ticket_id", resource_name="[NAME]"
+
+When ANY person's name appears in a time query (e.g., "Ashish", "Alex", "Uttam", "JC"), 
+you MUST include resource_name="[that name]" in time_aggregation params. Never ignore the name!
+
 TICKET ANALYSIS & CONTENT QUERIES (FLEXIBLE - understands many ways to ask):
 - "What are common issues?" → use analyze_common_issues
 - "Most frequent problems?" → use analyze_common_issues
@@ -238,13 +241,16 @@ Respond with JSON:
     "start_date": "YYYY-MM-DD",
     "end_date": "YYYY-MM-DD",
     "is_active": <boolean>
-  },
+  }, 
+
   "aggregation": {
     "group_by": ["status", "priority", "queue_id", "ticket_type", "company_name", "assigned_resource_name", "contact_name"]
   },
   "time_aggregation": {
     "group_by": "ticket_id" | "resource_id" | "company_id",
-    "limit": 10
+    "limit": 10,
+    "resource_name": "<string - filter by technician name>",
+    "company_name": "<string - filter by company name>"
   },
   "search_text": "<string>",
   "entity": "resources" | "contacts" | "companies",
@@ -267,8 +273,11 @@ COUNTING TICKETS BY QUEUE/STATUS:
 - "How many scheduled tickets?" → {"action": "count_tickets", "params": {"status": 10}}
 - "How many stuck tickets?" → {"action": "count_tickets", "params": {"status": 37}}
 
-TIME QUERIES:
-- "Which ticket took the most time?" → {"action": "aggregate_time", "time_aggregation": {"group_by": "ticket_id", "limit": 10}}
+TIME QUERIES WITH NAMES:
+- "How much time did Ashish work?" → {"action": "aggregate_time", "time_aggregation": {"group_by": "resource_id", "resource_name": "Ashish"}}
+- "What tickets did Alex work on?" → {"action": "aggregate_time", "time_aggregation": {"group_by": "ticket_id", "resource_name": "Alex"}}
+- "Hours JC spent last month?" → {"action": "aggregate_time", "time_aggregation": {"group_by": "ticket_id", "resource_name": "JC"}}
+- "Uttam's time entries" → {"action": "aggregate_time", "time_aggregation": {"group_by": "ticket_id", "resource_name": "Uttam"}}
 
 AGGREGATION QUERIES:
 - "How many open tickets?" → {"action": "count_tickets", "params": {"is_open": true}}
@@ -555,7 +564,7 @@ class SummaryGenerator:
         
         # Group by technician ID (needs lookup)
         elif "assigned_resource_id" in group_by and top and "assigned_resource_name" in top[0]:
-            lines.append("\nTop technicians:")
+            lines.append("\nTop technicians:") 
             for i, r in enumerate(top, 1):
                 lines.append(f"{i}. {r.get('assigned_resource_name', 'Unassigned')}: {r['count']:,}")
         
@@ -865,15 +874,40 @@ class AIService:
         }
     
     async def _aggregate_time(self, ai_response: Dict) -> Dict:
-        """Aggregate time entries"""
+        """Aggregate time entries with optional name filters"""
         time_agg = ai_response.get("time_aggregation", {})
         group_by = time_agg.get("group_by", "ticket_id")
         limit = time_agg.get("limit", 10)
+        resource_name = time_agg.get("resource_name")
+        company_name = time_agg.get("company_name")
         
-        logger.info(f"⏱️ Aggregating time by {group_by}")
+        logger.info(f"⏱️ Aggregating time by {group_by}, resource_name={resource_name}")
         
         try:
             query = self.db_service.client.table("time_entries").select("*")
+            
+            # Filter by resource name if provided
+            resource_ids = None
+            matched_resource_name = None
+            if resource_name:
+                resource_query = self.db_service.client.table("resources").select("id, first_name, last_name")
+                resource_query = resource_query.or_(
+                    f"first_name.ilike.%{resource_name}%,"
+                    f"last_name.ilike.%{resource_name}%"
+                )
+                resource_result = resource_query.execute()
+                
+                if not resource_result.data:
+                    return {
+                        "answer": f"No technician found matching '{resource_name}'",
+                        "results": [],
+                        "ticket_count": 0
+                    }
+                
+                resource_ids = [r["id"] for r in resource_result.data]
+                matched_resource_name = f"{resource_result.data[0]['first_name']} {resource_result.data[0]['last_name']}".strip()
+                query = query.in_("resource_id", resource_ids)
+                logger.info(f"🔍 Filtering for {matched_resource_name} (IDs: {resource_ids})")
             
             all_entries = []
             offset = 0
@@ -889,7 +923,18 @@ class AIService:
             
             logger.info(f"📊 Processing {len(all_entries)} time entries")
             
+            if not all_entries:
+                if resource_name:
+                    return {
+                        "answer": f"No time entries found for '{resource_name}'",
+                        "results": [],
+                        "ticket_count": 0
+                    }
+                return {"answer": "No time entries found", "results": [], "ticket_count": 0}
+            
+            # Aggregate
             agg = {}
+            total_hours = 0
             for entry in all_entries:
                 key = entry.get(group_by)
                 if not key:
@@ -906,6 +951,7 @@ class AIService:
                 try:
                     agg[key]["total_hours"] += float(hours)
                     agg[key]["entry_count"] += 1
+                    total_hours += float(hours)
                 except:
                     continue
             
@@ -914,6 +960,7 @@ class AIService:
             if not results:
                 return {"answer": "No time entries found", "results": [], "ticket_count": 0}
             
+            # Enrich with names
             if group_by == "ticket_id":
                 ticket_ids = [r["ticket_id"] for r in results]
                 tickets_data = self.db_service.client.table("tickets")\
@@ -930,10 +977,10 @@ class AIService:
                         result["title"] = ticket_map[tid].get("title")
             
             elif group_by == "resource_id":
-                resource_ids = [r["resource_id"] for r in results]
+                res_ids = [r["resource_id"] for r in results]
                 resources_data = self.db_service.client.table("resources")\
                     .select("id, first_name, last_name")\
-                    .in_("id", resource_ids)\
+                    .in_("id", res_ids)\
                     .execute().data or []
                 
                 resource_map = {r["id"]: f"{r['first_name']} {r['last_name']}".strip() for r in resources_data}
@@ -943,28 +990,39 @@ class AIService:
                     if rid in resource_map:
                         result["resource_name"] = resource_map[rid]
             
-            lines = [f"Top {len(results)} by total hours:\n"]
+            # Build response
+            lines = []
             
-            for i, r in enumerate(results, 1):
-                hours = r["total_hours"]
-                
-                if group_by == "ticket_id":
+            # If searching for a specific person, show their summary first
+            if resource_name and matched_resource_name:
+                lines.append(f"📊 **{matched_resource_name}** - Time Summary:\n")
+                lines.append(f"Total: {total_hours:.1f} hours across {len(all_entries)} time entries\n")
+            
+            if group_by == "ticket_id":
+                lines.append(f"Top {len(results)} tickets by hours:\n")
+                for i, r in enumerate(results, 1):
                     ticket_num = r.get("ticket_number", "Unknown")
                     title = r.get("title", "No title")[:50]
-                    lines.append(f"{i}. Ticket #{ticket_num}: {hours:.1f} hours - {title}")
-                
-                elif group_by == "resource_id":
+                    lines.append(f"{i}. Ticket #{ticket_num}: {r['total_hours']:.1f} hours - {title}")
+            
+            elif group_by == "resource_id":
+                if not resource_name:
+                    lines.append(f"Top {len(results)} technicians by hours:\n")
+                for i, r in enumerate(results, 1):
                     name = r.get("resource_name", "Unknown")
-                    lines.append(f"{i}. {name}: {hours:.1f} hours ({r['entry_count']} entries)")
-                
-                else:
-                    lines.append(f"{i}. ID {r[group_by]}: {hours:.1f} hours")
+                    lines.append(f"{i}. {name}: {r['total_hours']:.1f} hours ({r['entry_count']} entries)")
+            
+            else:
+                lines.append(f"Top {len(results)} by hours:\n")
+                for i, r in enumerate(results, 1):
+                    lines.append(f"{i}. ID {r[group_by]}: {r['total_hours']:.1f} hours")
             
             return {
                 "answer": "\n".join(lines),
                 "results": results,
                 "ticket_count": len(results),
-                "total_entries": len(all_entries)
+                "total_entries": len(all_entries),
+                "total_hours": total_hours
             }
             
         except Exception as e:
