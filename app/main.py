@@ -6,10 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.api.routes import sync, chat, health
+from app.api.routes.solutions import router as solutions_router
+from app.api.routes.summaries import router as summaries_router
+from app.services.mcp_chat import router as mcp_router
 
 settings = get_settings()
 
-# Initialize FastAPI app
+# Initialize FastAPI app 
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
@@ -31,8 +34,9 @@ app.add_middleware(
 app.include_router(sync.router)
 app.include_router(chat.router)
 app.include_router(health.router)
-
-
+app.include_router(solutions_router)
+app.include_router(summaries_router)
+app.include_router(mcp_router)
 
 @app.get("/")
 async def root():
@@ -51,6 +55,15 @@ async def root():
             "chat": {
                 "POST /chat": "Chat with AI about tickets"
             },
+            "solutions": {
+                "POST /solutions/search": "Search for ticket solutions",
+                "GET /solutions/ticket/{ticket_number}": "Get solution by ticket number",
+                "GET /solutions/stats": "Get solution statistics"
+            },
+            "summaries": {
+                "GET /summaries/list": "Get AI summaries of latest 200 tickets",
+                "POST /summaries/regenerate/{ticket_id}": "Regenerate summary for specific ticket"
+            }
         }
     }
 
@@ -70,14 +83,14 @@ async def startup_event():
     from app.services.database import get_database_service
     db = get_database_service()
     if db.health_check():
-        print("✓ Database connection verified")
+        print("[OK] Database connection verified")
     else:
-        print("✗ WARNING: Database connection failed")
+        print("[ERROR] WARNING: Database connection failed")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Run on application shutdown"""
     print("\n" + "="*60)
-    print("Shutting down application...")
+    print("Shutting down application...") 
     print("="*60 + "\n")

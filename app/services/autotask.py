@@ -101,62 +101,63 @@ class AutotaskService:
                 print(f"Fetched {len(tickets)} tickets. Now fetching their notes and time entries...")
 
                 async def fetch_ticket_details_limited(ticket):
-                    """Fetch notes and time entries for a single ticket"""
+                    """Fetch notes and time entries for a single ticket with retry logic"""
                     async with semaphore:
                         ticket_id = ticket["id"]
-                        
+
+                        async def fetch_with_retry(url, payload, entity_type, max_retries=3):
+                            """Fetch data with exponential backoff retry for 429 errors"""
+                            for attempt in range(max_retries):
+                                try:
+                                    response = await client.post(url, json=payload, headers=self._get_headers())
+                                    response.raise_for_status()
+                                    return response.json().get("items", [])
+                                except httpx.HTTPStatusError as e:
+                                    if e.response.status_code == 429:
+                                        # Rate limit hit - wait and retry
+                                        wait_time = (2 ** attempt) * 1.5  # 1.5s, 3s, 6s
+                                        print(f"  ⚠ Rate limit (429) for {entity_type} on ticket {ticket_id}, retrying in {wait_time}s...")
+                                        await asyncio.sleep(wait_time)
+                                        if attempt == max_retries - 1:
+                                            print(f"  ✗ Max retries reached for {entity_type} on ticket {ticket_id}")
+                                            return []
+                                    else:
+                                        print(f"  ⚠ HTTP {e.response.status_code} fetching {entity_type} for ticket {ticket_id}")
+                                        return []
+                                except Exception as e:
+                                    print(f"  ⚠ Failed to fetch {entity_type} for ticket {ticket_id}: {str(e)}")
+                                    return []
+                            return []
+
                         try:
-                            # Rate limiting
-                            await asyncio.sleep(0.1)
-                            
-                            # Parallel fetch of notes and time entries
-                            notes_task = client.post(
+                            # Rate limiting - increased delay to reduce API pressure
+                            await asyncio.sleep(0.3)
+
+                            # Fetch notes with retry logic
+                            notes = await fetch_with_retry(
                                 f"{self.base_url}/TicketNotes/query",
-                                json={
+                                {
                                     "MaxRecords": 500,
                                     "Filter": [{"field": "ticketID", "op": "eq", "value": ticket_id}]
                                 },
-                                headers=self._get_headers()
+                                "notes"
                             )
-                            
-                            time_task = client.post(
+
+                            # Small delay between notes and time entries
+                            await asyncio.sleep(0.2)
+
+                            # Fetch time entries with retry logic
+                            time_entries = await fetch_with_retry(
                                 f"{self.base_url}/TimeEntries/query",
-                                json={
+                                {
                                     "MaxRecords": 500,
                                     "Filter": [{"field": "ticketID", "op": "eq", "value": ticket_id}]
                                 },
-                                headers=self._get_headers()
+                                "time_entries"
                             )
-                            
-                            notes_response, time_response = await asyncio.gather(
-                                notes_task, time_task, return_exceptions=True
-                            )
-                            
-                            notes = []
-                            time_entries = []
-                            
-                            # Extract notes if successful
-                            if isinstance(notes_response, Exception):
-                                print(f"  ⚠ Failed to fetch notes for ticket {ticket_id}: {str(notes_response)}")
-                            else:
-                                try:
-                                    notes_response.raise_for_status()
-                                    notes = notes_response.json().get("items", [])
-                                except Exception as e:
-                                    print(f"  ⚠ Failed to parse notes for ticket {ticket_id}: {str(e)}")
-                            
-                            # Extract time entries if successful
-                            if isinstance(time_response, Exception):
-                                print(f"  ⚠ Failed to fetch time entries for ticket {ticket_id}: {str(time_response)}")
-                            else:
-                                try:
-                                    time_response.raise_for_status()
-                                    time_entries = time_response.json().get("items", [])
-                                except Exception as e:
-                                    print(f"  ⚠ Failed to parse time entries for ticket {ticket_id}: {str(e)}")
-                            
+
                             print(f"  ✓ Ticket {ticket_id}: {len(notes)} notes, {len(time_entries)} time entries")
-                            
+
                             return {
                                 **ticket,
                                 "notes": notes,
@@ -179,9 +180,10 @@ class AutotaskService:
                 # Check if we've fetched all available tickets
                 if len(tickets) < max_tickets:
                     break
-                
-                # Rate limiting between batches
-                await asyncio.sleep(0.5)
+
+                # Rate limiting between batches - increased to avoid hitting Autotask limits
+                print(f"  Waiting 2 seconds before next batch to respect Autotask rate limits...")
+                await asyncio.sleep(2.0)
 
         print(f"Finished fetching. Total tickets with details: {len(all_tickets_with_details)}")
         return all_tickets_with_details

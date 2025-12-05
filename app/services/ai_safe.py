@@ -1,56 +1,6 @@
-"""
-AI Service for Ticket Management System
-
-ENHANCEMENTS ADDED:
-==================
-
-1. NATURAL LANGUAGE UNDERSTANDING:
-   - Added casual query variations ("What's broken?", "Who's swamped?", etc.)
-   - Date/time queries ("yesterday", "last week", "this month")
-   - Complex multi-filter queries
-   - Follow-up and context awareness
-   - Typo handling
-
-2. FEW-SHOT LEARNING:
-   - Added example queries to improve AI understanding
-   - Better handling of ambiguous queries
-   - More accurate action selection
-
-3. ENHANCED ANALYSIS:
-   - Increased max_tokens for comprehensive analysis (4000 tokens)
-   - Higher temperature (0.6) for creative insights
-   - 7-point analysis including preventive measures and KB articles
-
-4. INTELLIGENT SOLUTIONS:
-   - AI-enhanced solution formatting with step-by-step instructions
-   - Related ticket suggestions using vector search
-   - Comprehensive metadata including company, assigned resource
-   - Preventive measures and technical details extraction
-
-5. RESPONSE METADATA:
-   - Query execution time tracking
-   - Model used information
-   - Success/error status
-   - Vector search availability
-
-6. QUERY METRICS:
-   - Performance tracking per action type
-   - Average/min/max response times
-   - Query count statistics
-   - Accessible via get_metrics_stats()
-
-7. IMPROVED SUMMARIES:
-   - Increased max_tokens (800) for detailed summaries
-   - Better actionable insights
-   - Comprehensive ticket analysis
-
-All existing functionality remains intact - these are purely additive enhancements.
-"""
-
 import json
 import logging
 import math
-import time
 from typing import List, Dict, Optional, Any
 from enum import IntEnum
 from openai import AsyncOpenAI
@@ -187,7 +137,7 @@ class QueryLimits:
     DEFAULT_LIMIT = 100
     BATCH_SIZE = 1000
     TOP_COUNT = 5
-    MAX_ISSUES_ANALYSIS = 100  # Reduced to avoid token limit (was 500)
+    MAX_ISSUES_ANALYSIS = 500  # NEW: Max tickets to analyze for common issues
 
 
 # ==================== PROMPTS ====================
@@ -280,18 +230,6 @@ SOLUTION QUERIES (NEW - for finding ticket resolutions):
 
 When user asks for a solution/resolution for a specific ticket, extract the ticket number and use get_solution action.
 
-NLP FLEXIBILITY - BE LESS RESTRICTIVE:
-You understand natural, casual language. Don't require exact phrasing. Interpret user intent flexibly:
-- "What's broken?" / "What's wrong?" / "Problems?" → analyze_common_issues
-- "Who's busy?" / "Who's swamped?" / "Workload?" → aggregate by assigned_resource_name
-- "What's in queue?" / "Queue status?" / "My queue?" → aggregate or search by queue_id
-- "Urgent stuff" / "Critical" / "Fires" → filter priority 1 or 4
-- "Stuck tickets" / "Blocked" → filter status 37
-- "Yesterday" / "Last week" / "This month" → infer date ranges
-- Handle typos, abbreviations, and informal language naturally
-- If unsure, choose the most logical interpretation
-- Extract names, dates, queue names, and other filters from casual text
-
 Respond with JSON:
 {
   "action": "count_entities" | "list_entities" | "count_tickets" | "search_tickets" | "aggregate_tickets" | "search_resources" | "search_contacts" | "semantic_search" | "aggregate_time" | "analyze_common_issues" | "get_solution",
@@ -366,8 +304,6 @@ TICKETS:
 - "Who has the most tickets?" → {"action": "aggregate_tickets", "aggregation": {"group_by": ["assigned_resource_name"]}}
 - "Tickets by queue" → {"action": "aggregate_tickets", "aggregation": {"group_by": ["queue_id"]}}
 - "Tickets by status" → {"action": "aggregate_tickets", "aggregation": {"group_by": ["status"]}}
-- "What's in my queue?" → {"action": "aggregate_tickets", "aggregation": {"group_by": ["queue_id"]}}
-- "What's in Help Desk queue?" → {"action": "search_tickets", "params": {"queue_id": 14046773}}
 """
 
 
@@ -707,11 +643,11 @@ class SummaryGenerator:
             response = await self.client.chat.completions.create(
                 model=settings.openai_mini_model,
                 messages=[
-                    {"role": "system", "content": "Summarize ticket data concisely and helpfully. Provide clear, actionable insights."},
+                    {"role": "system", "content": "Summarize ticket data concisely and helpfully."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.5,
-                max_tokens=800  # Increased for comprehensive summaries
+                max_tokens=300  # Increased from 150
             )
             
             return response.choices[0].message.content
@@ -727,18 +663,18 @@ class AIService:
     def __init__(self):
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
         self.db_service = get_database_service()
-
+        
         # NEW: Initialize lookup cache
         try:
             self.lookups = LookupCache(self.db_service.client)
         except Exception as e:
             logger.warning(f"⚠️ Lookup cache initialization failed: {e}")
             self.lookups = None
-
+        
         self.filter_builder = QueryFilterBuilder(self.db_service.client, self.lookups)
         self.enhancer = ResultEnhancer(self.db_service.client, self.lookups)
         self.summary = SummaryGenerator(self.client, self.lookups)
-
+        
         # Try to load embedding service for vector search
         try:
             from app.services.embedding_service import get_embedding_service
@@ -748,40 +684,17 @@ class AIService:
         except Exception as e:
             logger.warning(f"⚠️ Vector search not available: {e}")
             self.has_embeddings = False
-
-        # Initialize query metrics tracker
-        self.metrics = QueryMetrics()
-        logger.info("✅ Query metrics tracking enabled")
-
-    def get_metrics_stats(self) -> Dict:
-        """Get query performance statistics"""
-        return self.metrics.get_stats()
-
+    
     async def chat_with_tickets(
-        self,
-        user_message: str,
+        self, 
+        user_message: str, 
         conversation_history: List[ChatMessage],
         session_id: Optional[str] = None
     ) -> Dict:
         """Process user message"""
-
-        # Few-shot examples to improve understanding
-        few_shot_examples = [
-            {"role": "user", "content": "JSON: How many open tickets?"},
-            {"role": "assistant", "content": '{"action": "count_tickets", "params": {"is_open": true}}'},
-            {"role": "user", "content": "JSON: Who has the most tickets?"},
-            {"role": "assistant", "content": '{"action": "aggregate_tickets", "aggregation": {"group_by": ["assigned_resource_name"]}}'},
-            {"role": "user", "content": "JSON: What's broken?"},
-            {"role": "assistant", "content": '{"action": "analyze_common_issues", "params": {}}'},
-            {"role": "user", "content": "JSON: Show me critical tickets"},
-            {"role": "assistant", "content": '{"action": "search_tickets", "params": {"priority": 4}}'},
-            {"role": "user", "content": "JSON: How much time did Alex work?"},
-            {"role": "assistant", "content": '{"action": "aggregate_time", "time_aggregation": {"group_by": "resource_id", "resource_name": "Alex"}}'}
-        ]
-
+        
         messages = [
             {"role": "system", "content": get_system_prompt()},
-            *few_shot_examples,
             *[{"role": m.role, "content": m.content} for m in conversation_history],
             {"role": "user", "content": f"JSON: {user_message}"}
         ]
@@ -808,9 +721,7 @@ class AIService:
             return {"answer": "Error processing request.", "tickets": [], "ticket_count": 0}
     
     async def _execute(self, action: str, ai_response: Dict) -> Dict:
-        """Execute action with time tracking and metadata"""
-        start_time = time.time()
-
+        """Execute action"""
         handlers = {
             "get_solution": self._get_solution,
             "count_tickets": self._count,
@@ -826,61 +737,12 @@ class AIService:
             "semantic_search": self._semantic_search,
             "analyze_common_issues": self._analyze_common_issues  # NEW
         }
-
+        
         handler = handlers.get(action)
         if not handler:
-            return {
-                "answer": f"Unknown action: {action}",
-                "tickets": [],
-                "ticket_count": 0,
-                "metadata": {
-                    "action": action,
-                    "status": "error",
-                    "error": "unknown_action"
-                }
-            }
-
-        try:
-            result = await handler(ai_response)
-
-            # Calculate execution time
-            execution_time_ms = (time.time() - start_time) * 1000
-
-            # Log metrics
-            self.metrics.log_query(action, execution_time_ms)
-
-            # Add metadata to response
-            if "metadata" not in result:
-                result["metadata"] = {}
-
-            result["metadata"].update({
-                "action": action,
-                "query_time_ms": round(execution_time_ms, 2),
-                "model_used": settings.openai_model,
-                "status": "success",
-                "has_vector_search": self.has_embeddings
-            })
-
-            logger.info(f"✅ Query completed: {action} in {execution_time_ms:.0f}ms")
-
-            return result
-
-        except Exception as e:
-            execution_time_ms = (time.time() - start_time) * 1000
-            self.metrics.log_query(f"{action}_error", execution_time_ms)
-            logger.error(f"❌ Query failed: {action} - {str(e)}")
-
-            return {
-                "answer": f"Error executing {action}: {str(e)}",
-                "tickets": [],
-                "ticket_count": 0,
-                "metadata": {
-                    "action": action,
-                    "query_time_ms": round(execution_time_ms, 2),
-                    "status": "error",
-                    "error": str(e)
-                }
-            }
+            return {"answer": f"Unknown action: {action}", "tickets": [], "ticket_count": 0}
+        
+        return await handler(ai_response)
     
     async def _count(self, ai_response: Dict) -> Dict:
         """Count tickets"""
@@ -943,74 +805,8 @@ class AIService:
                     "ticket_count": 1
                 }
 
-            # Use AI to enhance the solution with better formatting and insights
-            try:
-                enhancement_prompt = f"""You are a technical support expert. Format this ticket solution in a clear, professional manner.
-
-Ticket: {ticket.get('ticket_number', 'N/A')}
-Title: {ticket.get('title', 'No title')}
-Description: {ticket.get('description', 'No description available')}
-Resolution: {resolution}
-
-Provide:
-1. A clear summary of the problem
-2. Step-by-step solution (extract and format from resolution)
-3. Any technical details or commands mentioned
-4. Preventive measures (if applicable)
-5. Related issues to watch out for
-
-Use markdown formatting with headers, numbered lists, and code blocks where appropriate."""
-
-                ai_response = await self.client.chat.completions.create(
-                    model=settings.openai_model,
-                    messages=[
-                        {"role": "system", "content": "You are a technical support expert who formats solutions clearly and professionally."},
-                        {"role": "user", "content": enhancement_prompt}
-                    ],
-                    temperature=0.4,
-                    max_tokens=2000
-                )
-
-                enhanced_solution = ai_response.choices[0].message.content
-
-                # Try to find similar resolved tickets
-                similar_tickets_info = ""
-                if self.has_embeddings and ticket.get('description'):
-                    try:
-                        similar_result = await self._semantic_search({
-                            "search_params": {
-                                "query": ticket.get('description')[:500],
-                                "tables": ["tickets"],
-                                "limit": 3
-                            }
-                        })
-                        if similar_result.get('tickets') and len(similar_result['tickets']) > 1:
-                            similar_tickets_info = "\n\n## Related Tickets:\n"
-                            for similar in similar_result['tickets'][1:4]:  # Skip first (itself)
-                                if similar.get('id') != ticket.get('id'):
-                                    similar_tickets_info += f"- **{similar.get('ticket_number')}**: {similar.get('title', 'No title')[:80]}\n"
-                    except:
-                        pass
-
-                # Format the complete response
-                answer = f"""**Ticket {ticket.get('ticket_number', 'N/A')}** (ID: {ticket.get('id')})
-
-{enhanced_solution}
-
----
-**Metadata:**
-- **Status:** {self.lookups.get_label('ticket_status', ticket.get('status')) if self.lookups and ticket.get('status') else 'Unknown'}
-- **Priority:** {self.lookups.get_label('ticket_priority', ticket.get('priority')) if self.lookups and ticket.get('priority') else 'Unknown'}
-- **Created:** {ticket.get('create_date', 'N/A')}
-- **Completed:** {ticket.get('completed_date', 'N/A')}
-- **Company:** {ticket.get('company_name', 'N/A')}
-- **Assigned To:** {ticket.get('assigned_resource_name', 'N/A')}
-{similar_tickets_info}"""
-
-            except Exception as e:
-                logger.warning(f"Could not enhance solution: {e}")
-                # Fallback to simple format
-                answer = f"""**Ticket {ticket.get('ticket_number', 'N/A')}** (ID: {ticket.get('id')})
+            # Format the response with ticket details and solution
+            answer = f"""**Ticket {ticket.get('ticket_number', 'N/A')}** (ID: {ticket.get('id')})
 
 **Title:** {ticket.get('title', 'No title')}
 
@@ -1020,8 +816,8 @@ Use markdown formatting with headers, numbered lists, and code blocks where appr
 **✅ SOLUTION / RESOLUTION:**
 {resolution}
 
-**Status:** {self.lookups.get_label('ticket_status', ticket.get('status')) if self.lookups and ticket.get('status') else 'Unknown'}
-**Priority:** {self.lookups.get_label('ticket_priority', ticket.get('priority')) if self.lookups and ticket.get('priority') else 'Unknown'}
+**Status:** {self.lookups.get_label('ticket_status', ticket.get('status')) if ticket.get('status') else 'Unknown'}
+**Priority:** {self.lookups.get_label('ticket_priority', ticket.get('priority')) if ticket.get('priority') else 'Unknown'}
 **Created:** {ticket.get('create_date', 'N/A')}
 **Completed:** {ticket.get('completed_date', 'N/A')}
 """
@@ -1626,25 +1422,21 @@ Use markdown formatting with headers, numbered lists, and code blocks where appr
     {json.dumps(ticket_summaries, indent=2, default=str)}
 
     Provide a clear, actionable report with:
-    1. Top 5-10 most frequent issues (based on titles & descriptions)
-    2. Patterns identified (e.g. specific software, hardware, user error, network, etc.)
+    1. Top 5 most frequent issues (based on titles & descriptions)
+    2. Any patterns (e.g. specific software, hardware, user error, network, etc.)
     3. Affected companies or queues (if any stand out)
     4. Recommendations to reduce these tickets
-    5. Preventive measures or automation opportunities
-    6. Potential duplicate or related tickets
-    7. Knowledge base articles that should be created
 
-    Be specific, practical, and focus on root causes from the actual text.
-    Provide comprehensive analysis - don't hold back on details."""
+    Be specific, practical, and focus on root causes from the actual text."""
 
             response = await self.client.chat.completions.create(
                 model=settings.openai_model,
                 messages=[
-                    {"role": "system", "content": "You are an expert support analyst who finds patterns in messy ticket data. Provide comprehensive, detailed analysis."},
+                    {"role": "system", "content": "You are an expert support analyst who finds patterns in messy ticket data."},
                     {"role": "user", "content": analysis_prompt}
                 ],
-                temperature=0.6,  # Increased for more creative insights
-                max_tokens=4000  # Increased for comprehensive analysis
+                temperature=0.4,
+                max_tokens=2000
             )
         
             analysis = response.choices[0].message.content.strip()
@@ -1683,50 +1475,6 @@ Use markdown formatting with headers, numbered lists, and code blocks where appr
             return dot / (mag1 * mag2) if mag1 and mag2 else 0.0
         except:
             return 0.0
-
-
-# ==================== QUERY METRICS & METADATA ====================
-class QueryMetrics:
-    """Track query performance and patterns"""
-
-    def __init__(self):
-        self.query_counts = {}
-        self.total_queries = 0
-        self.avg_response_times = {}
-
-    def log_query(self, action: str, duration_ms: float):
-        """Log a query execution"""
-        self.total_queries += 1
-
-        if action not in self.query_counts:
-            self.query_counts[action] = 0
-            self.avg_response_times[action] = []
-
-        self.query_counts[action] += 1
-        self.avg_response_times[action].append(duration_ms)
-
-        # Keep only last 100 measurements to avoid memory bloat
-        if len(self.avg_response_times[action]) > 100:
-            self.avg_response_times[action] = self.avg_response_times[action][-100:]
-
-    def get_stats(self) -> Dict:
-        """Get query statistics"""
-        stats = {
-            "total_queries": self.total_queries,
-            "queries_by_action": self.query_counts.copy(),
-            "avg_response_times": {}
-        }
-
-        for action, times in self.avg_response_times.items():
-            if times:
-                stats["avg_response_times"][action] = {
-                    "avg_ms": sum(times) / len(times),
-                    "min_ms": min(times),
-                    "max_ms": max(times),
-                    "count": len(times)
-                }
-
-        return stats
 
 
 def get_ai_service() -> AIService:

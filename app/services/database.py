@@ -708,6 +708,12 @@ class DatabaseService:
     @staticmethod
     def transform_ticket(ticket: Dict) -> Dict:
         """Transform Autotask ticket to database schema"""
+        # Handle sub_issue_type - set to None if not provided or if it might be invalid
+        # This prevents foreign key constraint violations
+        sub_issue_type = ticket.get("subIssueType")
+        if sub_issue_type == 0 or sub_issue_type == "":
+            sub_issue_type = None
+
         return {
             "id": ticket.get("id"),
             "ticket_number": ticket.get("ticketNumber"),
@@ -728,7 +734,7 @@ class DatabaseService:
             "resolution": ticket.get("resolution", ""),
             "source": ticket.get("source"),
             "issue_type": ticket.get("issueType"),
-            "sub_issue_type": ticket.get("subIssueType"),
+            "sub_issue_type": sub_issue_type,  # Now handles None gracefully
             "queue_id": ticket.get("queueID"),
         }
     
@@ -759,35 +765,55 @@ class DatabaseService:
     async def store_tickets_with_details(self, tickets_data: List[Dict]) -> SyncStats:
         """
         Store tickets, notes, and time entries in Supabase
-        
+
         Args:
             tickets_data: List of tickets with notes and time entries
-            
+
         Returns:
             SyncStats with operation statistics
         """
         stats = SyncStats()
-        
+
         print(f"\nStoring {len(tickets_data)} tickets in database...")
-        
+
         for idx, ticket_data in enumerate(tickets_data, 1):
             ticket_id = ticket_data.get("id", "unknown")
-            
+
             try:
                 # Store ticket
                 ticket = self.transform_ticket(ticket_data)
-                
-                try:
-                    result = self.client.table("tickets").upsert(ticket, on_conflict="id").execute()
-                    stats.tickets_processed += 1
-                    if result.data:
-                        stats.tickets_inserted += 1
-                        print(f"  ✓ Stored ticket {ticket_id} ({idx}/{len(tickets_data)})")
-                except Exception as e:
-                    error_msg = f"Ticket {ticket_id}: {str(e)}"
-                    stats.errors.append(error_msg)
-                    print(f"  ✗ {error_msg}")
-                    continue
+
+                # Retry logic for network errors (SSL handshake, timeouts, etc.)
+                max_retries = 3
+                retry_count = 0
+                ticket_stored = False
+
+                while retry_count < max_retries and not ticket_stored:
+                    try:
+                        result = self.client.table("tickets").upsert(ticket, on_conflict="id").execute()
+                        stats.tickets_processed += 1
+                        if result.data:
+                            stats.tickets_inserted += 1
+                            print(f"  ✓ Stored ticket {ticket_id} ({idx}/{len(tickets_data)})")
+                            ticket_stored = True
+                    except Exception as e:
+                        retry_count += 1
+                        error_str = str(e)
+
+                        # Check if it's a network/SSL error that might succeed on retry
+                        is_retriable = any(keyword in error_str.lower() for keyword in
+                                         ['ssl', 'handshake', 'timeout', 'connection', '525', '503', '502'])
+
+                        if is_retriable and retry_count < max_retries:
+                            print(f"  ⚠ Ticket {ticket_id}: Network error, retrying ({retry_count}/{max_retries})...")
+                            import asyncio
+                            await asyncio.sleep(2 ** retry_count)  # Exponential backoff: 2s, 4s, 8s
+                        else:
+                            # Not retriable or max retries reached
+                            error_msg = f"Ticket {ticket_id}: {error_str}"
+                            stats.errors.append(error_msg)
+                            print(f"  ✗ {error_msg}")
+                            break
                 
                 # Store notes
                 notes = ticket_data.get("notes", [])

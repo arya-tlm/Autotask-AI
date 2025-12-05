@@ -789,6 +789,18 @@
                 </div>
                 AI Assistant
             </div>
+            <div class="nav-item" onclick="showSection('solutions')">
+                <div class="nav-icon">
+                    <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                </div>
+                Solutions
+            </div>
+            <div class="nav-item" onclick="showSection('summaries')">
+                <div class="nav-icon">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                </div>
+                Summaries
+            </div>
         </div>
         <div class="nav-section">
             <div class="nav-label">System</div>
@@ -872,6 +884,35 @@
                     <div class="stat-value" id="stat-resources">0</div>
                     <div class="stat-change">Active resources</div>
                 </div>
+            </div>
+
+            <!-- Quick Solution Search Widget -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        </div>
+                        Quick Solution Search
+                    </h3>
+                </div>
+                <p style="color: #718096; margin-bottom: 20px; font-size: 0.95rem;">
+                    Enter a ticket number to quickly view its solution/resolution
+                </p>
+                <div class="grid">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <input type="text" class="form-control" id="dashboard-solution-search" placeholder="Enter ticket number (e.g., T20240001)">
+                    </div>
+                    <div style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-success" onclick="quickSearchSolution()" id="quick-search-btn">
+                            <div class="btn-icon">
+                                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            </div>
+                            <span id="quick-search-text">Find Solution</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="quick-solution-result" style="margin-top: 20px; display: none;"></div>
             </div>
 
             <!-- Quick Actions -->
@@ -1065,6 +1106,243 @@
             </div>
         </div>
 
+        <!-- Solutions Section -->
+        <div id="solutions-section" style="display: none;">
+            <div class="top-bar">
+                <div class="breadcrumb">
+                    Home / <span>Solutions</span>
+                </div>
+                <div class="user-section">
+                    <div class="user-avatar">AD</div>
+                </div>
+            </div>
+
+            <div class="header">
+                <h2>Ticket Solutions</h2>
+                <p>Search and view solutions for resolved tickets</p>
+            </div>
+
+            <!-- Solution Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-label">Total Solutions</div>
+                        </div>
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="stat-solutions-total">0</div>
+                    <div class="stat-change">Resolved tickets</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-label">Resolution Rate</div>
+                        </div>
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="stat-resolution-rate">0%</div>
+                    <div class="stat-change">Success percentage</div>
+                </div>
+            </div>
+
+            <!-- Search Solutions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        </div>
+                        Search Solutions by Ticket Number
+                    </h3>
+                </div>
+                <div style="display: flex; gap: 14px; align-items: flex-end;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label class="form-label">Ticket Number</label>
+                        <input type="text" class="form-control" id="solution-ticket-number" placeholder="e.g., T20251027.0005">
+                    </div>
+                    <button class="btn btn-primary" onclick="searchSolutionByTicket()" id="search-solution-btn" style="width: auto; padding: 14px 32px;">
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        </div>
+                        <span id="search-solution-text">Search</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Solutions Results -->
+            <div id="solutions-results" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <div class="card-icon">
+                                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </div>
+                            Solution Details
+                        </h3>
+                        <button class="btn btn-outline" onclick="showAllSolutions()" style="width: auto; padding: 10px 24px; font-size: 0.875rem;">
+                            <div class="btn-icon">
+                                <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </div>
+                            View All Solutions
+                        </button>
+                    </div>
+                    <div id="solution-cards-container"></div>
+                </div>
+            </div>
+
+            <!-- Common Solutions / Suggestions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        </div>
+                        AI Suggestions for Open Tickets
+                    </h3>
+                    <button class="btn btn-outline" onclick="loadCommonSolutions(true)" style="width: auto; padding: 10px 24px; font-size: 0.875rem;">
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        </div>
+                        Refresh
+                    </button>
+                </div>
+                <p style="color: #718096; margin-bottom: 20px; font-size: 0.95rem;">
+                    AI-generated solution suggestions for common open tickets
+                </p>
+                <div id="common-solutions-container">
+                    <div style="text-align: center; padding: 40px; color: #a0aec0;">
+                        <svg style="width: 64px; height: 64px; margin: 0 auto 16px; stroke: #cbd5e0;" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <p style="font-size: 1.1rem; font-weight: 600;">Click "Refresh" to load AI suggestions</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Solutions List -->
+            <div id="all-solutions-list" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <div class="card-icon">
+                                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </div>
+                            All Solutions (<span id="all-solutions-count">0</span>)
+                        </h3>
+                        <button class="btn btn-secondary" onclick="loadSolutionStats()" style="width: auto; padding: 10px 24px; font-size: 0.875rem;">
+                            <div class="btn-icon">
+                                <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            </div>
+                            Refresh
+                        </button>
+                    </div>
+                    <div id="all-solutions-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summaries Section -->
+        <div id="summaries-section" style="display: none;">
+            <div class="top-bar">
+                <div class="breadcrumb">
+                    Home / <span>Summaries</span>
+                </div>
+                <div class="user-section">
+                    <div class="user-avatar">AD</div>
+                </div>
+            </div>
+
+            <div class="header">
+                <h2>Ticket Summaries</h2>
+                <p>AI-generated summaries of ticket notes and work performed</p>
+            </div>
+
+            <!-- Summary Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-label">Total Summaries</div>
+                        </div>
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="stat-summaries-total">0</div>
+                    <div class="stat-change">Latest tickets</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-label">Cached</div>
+                        </div>
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="stat-summaries-cached">0</div>
+                    <div class="stat-change">From database</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-label">Generated</div>
+                        </div>
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="stat-summaries-generated">0</div>
+                    <div class="stat-change">AI-created</div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        </div>
+                        Actions
+                    </h3>
+                </div>
+                <div style="display: flex; gap: 14px;">
+                    <button class="btn btn-primary" onclick="loadSummaries(false)" id="load-summaries-btn" style="flex: 1;">
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        </div>
+                        <span id="load-summaries-text">Load Summaries</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadSummaries(true)" id="regenerate-all-btn" style="flex: 1;">
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        </div>
+                        <span id="regenerate-all-text">Force Regenerate All</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summaries Grid -->
+            <div id="summaries-container">
+                <div style="text-align: center; padding: 60px; color: #a0aec0;">
+                    <svg style="width: 80px; height: 80px; margin: 0 auto 24px; stroke: #cbd5e0;" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <p style="font-size: 1.2rem; font-weight: 600; color: #4a5568;">Click "Load Summaries" to view ticket summaries</p>
+                    <p style="font-size: 0.95rem; margin-top: 8px;">Displays the latest 200 tickets with AI-generated summaries</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Settings Section -->
         <div id="settings-section" style="display: none;">
             <div class="top-bar">
@@ -1092,7 +1370,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">API Endpoint</label>
-                    <input type="text" class="form-control" value="https://autotask-ticket.onrender.com" readonly>
+                    <input type="text" class="form-control" value="http://192.168.100.74:8800" readonly>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Connection Status</label>
@@ -1131,20 +1409,39 @@
 
     <script>
         // ==================== CONFIG ====================
-        const API_BASE = 'https://autotask-ticket.onrender.com';
+        const API_BASE = 'http://192.168.100.74:8800';
         let conversationHistory = []; 
 
         // ==================== NAVIGATION ====================
-        function showSection(section) {
+        function showSection(section, event = null) {
             document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-            event.target.closest('.nav-item').classList.add('active');
-            
+            if (event && event.target) {
+                event.target.closest('.nav-item').classList.add('active');
+            } else {
+                // If no event (programmatic call), find and activate the nav item by section
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(item => {
+                    if (item.textContent.toLowerCase().includes(section)) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+
             document.getElementById('dashboard-section').style.display = 'none';
             document.getElementById('sync-section').style.display = 'none';
             document.getElementById('chat-section').style.display = 'none';
+            document.getElementById('solutions-section').style.display = 'none';
             document.getElementById('settings-section').style.display = 'none';
-            
+
             document.getElementById(section + '-section').style.display = 'block';
+
+            // Load solutions stats and common solutions when solutions section is opened
+            if (section === 'solutions') {
+                console.log('Solutions section opened - loading data...');
+                loadSolutionStats();
+                // Small delay to avoid race conditions
+                setTimeout(() => loadCommonSolutions(), 100);
+            }
         }
 
         // ==================== TOAST NOTIFICATIONS ====================
@@ -1398,6 +1695,851 @@
             
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // ==================== SOLUTIONS FUNCTIONS ====================
+        async function loadSolutionStats() {
+            try {
+                const response = await fetch(`${API_BASE}/solutions/stats`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const stats = data.stats;
+                    document.getElementById('stat-solutions-total').textContent =
+                        stats.tickets_with_solutions.toLocaleString();
+                    document.getElementById('stat-resolution-rate').textContent =
+                        stats.resolution_rate_percentage.toFixed(1) + '%';
+                }
+            } catch (error) {
+                console.error('Failed to load solution stats:', error);
+                showToast('Failed to load solution statistics', 'error');
+            }
+        }
+
+        async function searchSolutionByTicket() {
+            const ticketNumber = document.getElementById('solution-ticket-number').value.trim();
+
+            if (!ticketNumber) {
+                showToast('Please enter a ticket number', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('search-solution-btn');
+            const text = document.getElementById('search-solution-text');
+
+            btn.disabled = true;
+            text.innerHTML = '<span class="loading-spinner"></span> Searching...';
+
+            try {
+                const response = await fetch(`${API_BASE}/solutions/ticket/${ticketNumber}`);
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ detail: 'Failed to fetch solution' }));
+                    showToast(error.detail || 'Failed to fetch solution', 'error');
+                    document.getElementById('solutions-results').style.display = 'none';
+                    return;
+                }
+
+                const data = await response.json();
+
+                // Validate response data
+                if (!data || !data.ticket) {
+                    showToast('Invalid response from server', 'error');
+                    document.getElementById('solutions-results').style.display = 'none';
+                    return;
+                }
+
+                // Display AI-formatted solution
+                displayAISolutionCard(data);
+                document.getElementById('solutions-results').style.display = 'block';
+                document.getElementById('all-solutions-list').style.display = 'none';
+
+                showToast('Solution retrieved!', 'success');
+
+            } catch (error) {
+                console.error('Search error:', error);
+                showToast('Failed to search solution: ' + error.message, 'error');
+                document.getElementById('solutions-results').style.display = 'none';
+            } finally {
+                btn.disabled = false;
+                text.textContent = 'Search';
+            }
+        }
+
+        function displayAISolutionCard(data) {
+            const container = document.getElementById('solution-cards-container');
+            const ticket = data.ticket;
+            const aiAnswer = data.answer;
+
+            const priorityLabels = {1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low'};
+            const statusLabels = {1: 'New', 5: 'Complete', 8: 'Cancelled'};
+
+            const priorityColors = {
+                1: 'background: #fff5f5; color: #c53030; border: 2px solid #fc8181;',
+                2: 'background: #fffaf0; color: #c05621; border: 2px solid #ed8936;',
+                3: 'background: #ebf8ff; color: #2c5282; border: 2px solid #4299e1;',
+                4: 'background: #f0fff4; color: #22543d; border: 2px solid #48bb78;'
+            };
+
+            const createDate = ticket.create_date ? new Date(ticket.create_date).toLocaleDateString() : 'N/A';
+            const completedDate = ticket.completed_date ? new Date(ticket.completed_date).toLocaleDateString() : 'N/A';
+
+            // Convert markdown to basic HTML (simple conversion)
+            const formatMarkdown = (text) => {
+                return text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/###\s+(.*?)(\n|$)/g, '<h4 style="font-size: 1.1rem; font-weight: 700; color: #2d3748; margin: 16px 0 8px 0;">$1</h4>')
+                    .replace(/##\s+(.*?)(\n|$)/g, '<h3 style="font-size: 1.3rem; font-weight: 700; color: #1a202c; margin: 20px 0 12px 0;">$1</h3>')
+                    .replace(/\n\n/g, '</p><p style="margin: 12px 0; line-height: 1.6;">')
+                    .replace(/\n/g, '<br>');
+            };
+
+            container.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 24px;">
+                        <div>
+                            <h3 style="font-size: 1.5rem; font-weight: 700; color: #1a202c; margin-bottom: 8px;">
+                                ${data.ticket_number || 'N/A'}
+                            </h3>
+                            <p style="font-size: 1.1rem; color: #4a5568; font-weight: 600;">${data.title || 'No Title'}</p>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <span style="padding: 8px 16px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; ${priorityColors[ticket.priority] || priorityColors[3]}">
+                                ${priorityLabels[ticket.priority] || 'Unknown'} Priority
+                            </span>
+                            <span class="badge ${data.has_resolution ? 'badge-success' : 'badge-warning'}">${statusLabels[ticket.status] || 'Status ' + ticket.status}</span>
+                        </div>
+                    </div>
+
+                    <!-- AI-Formatted Answer -->
+                    <div style="padding: 24px; background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%); border-radius: 12px; border: 2px solid #48bb78; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            <svg style="width: 24px; height: 24px; stroke: #22543d;" viewBox="0 0 24 24" fill="none" stroke-width="2.5">
+                                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                            </svg>
+                            <h4 style="font-size: 1.1rem; font-weight: 700; color: #22543d; text-transform: uppercase; letter-spacing: 0.5px;">
+                                AI-Formatted Solution
+                            </h4>
+                        </div>
+                        <div style="color: #22543d; line-height: 1.8; font-size: 0.95rem; background: white; padding: 20px; border-radius: 8px;">
+                            <p style="margin: 0; line-height: 1.6;">${formatMarkdown(aiAnswer)}</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                        <div>
+                            <p style="color: #718096; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">Created</p>
+                            <p style="color: #1a202c; font-weight: 600; font-size: 0.95rem;">${createDate}</p>
+                        </div>
+                        <div>
+                            <p style="color: #718096; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">Completed</p>
+                            <p style="color: #1a202c; font-weight: 600; font-size: 0.95rem;">${completedDate}</p>
+                        </div>
+                        <div>
+                            <p style="color: #718096; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">Ticket ID</p>
+                            <p style="color: #1a202c; font-weight: 600; font-size: 0.95rem;">#${ticket.id}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function showAllSolutions() {
+            try {
+                const response = await fetch(`${API_BASE}/solutions/search`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        has_resolution: true,
+                        limit: 50
+                    })
+                });
+
+                const data = await response.json();
+
+                document.getElementById('all-solutions-count').textContent = data.total_count;
+
+                const container = document.getElementById('all-solutions-container');
+
+                if (data.solutions.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #718096; padding: 40px;">No solutions found</p>';
+                } else {
+                    container.innerHTML = data.solutions.map(sol => {
+                        const createDate = sol.create_date ? new Date(sol.create_date).toLocaleDateString() : 'N/A';
+                        const priorityLabels = {1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low'};
+
+                        return `
+                            <div style="background: white; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; margin-bottom: 16px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'" onclick="document.getElementById('solution-ticket-number').value='${sol.ticket_number}'; searchSolutionByTicket();">
+                                <div style="display: flex; justify-content: space-between; align-items: start;">
+                                    <div style="flex: 1;">
+                                        <h4 style="font-size: 1.1rem; font-weight: 700; color: #1a202c; margin-bottom: 6px;">${sol.ticket_number} - ${sol.title || 'No Title'}</h4>
+                                        <p style="color: #718096; font-size: 0.875rem; margin-bottom: 12px;">${sol.description?.substring(0, 150) || 'No description'}${sol.description?.length > 150 ? '...' : ''}</p>
+                                        <p style="color: #2d3748; font-size: 0.9rem; font-weight: 600;">
+                                            <strong style="color: #22543d;">Solution:</strong> ${sol.resolution?.substring(0, 100) || 'No solution'}${sol.resolution?.length > 100 ? '...' : ''}
+                                        </p>
+                                    </div>
+                                    <div style="margin-left: 20px;">
+                                        <span class="badge badge-primary">${priorityLabels[sol.priority] || 'Unknown'}</span>
+                                        <p style="color: #718096; font-size: 0.75rem; margin-top: 8px;">${createDate}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                document.getElementById('solutions-results').style.display = 'none';
+                document.getElementById('all-solutions-list').style.display = 'block';
+
+                showToast(`Found ${data.total_count} solutions`, 'info');
+
+            } catch (error) {
+                console.error('Load all solutions error:', error);
+                showToast('Failed to load solutions: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== HELPER: VIEW TICKET SOLUTION ====================
+        function viewTicketSolution(ticketNumber) {
+            console.log('Viewing solution for ticket:', ticketNumber);
+            document.getElementById('solution-ticket-number').value = ticketNumber;
+            showSection('solutions');
+            // Scroll to top of solutions section
+            document.querySelector('.main-content').scrollTop = 0;
+            // Trigger search after a brief delay
+            setTimeout(() => {
+                searchSolutionByTicket();
+            }, 300);
+        }
+
+        // ==================== AI-POWERED SOLUTION SUGGESTIONS ====================
+        async function loadCommonSolutions(forceRefresh = false) {
+            const container = document.getElementById('common-solutions-container');
+
+            if (!container) {
+                console.error('Container not found!');
+                return;
+            }
+
+            console.log('Loading AI suggestions...', forceRefresh ? '(forcing refresh)' : '(using cache if available)');
+            container.innerHTML = '<div style="text-align: center; padding: 40px;"><span class="loading-spinner" style="width: 40px; height: 40px; border-width: 4px;"></span><p style="margin-top: 16px; color: #718096; font-weight: 600;">AI is analyzing tickets and generating smart suggestions...</p></div>';
+
+            try {
+                // Fetch AI-generated suggestions (with optional force refresh)
+                const url = forceRefresh
+                    ? `${API_BASE}/solutions/ai-suggestions?force_refresh=true`
+                    : `${API_BASE}/solutions/ai-suggestions`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                console.log('AI Response:', data);
+
+                if (!data.suggestions || data.suggestions.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #a0aec0;">
+                            <svg style="width: 64px; height: 64px; margin: 0 auto 16px; stroke: #cbd5e0;" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                                <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                            <p style="font-size: 1.1rem; font-weight: 600;">No suggestions available</p>
+                            <p style="font-size: 0.9rem; margin-top: 8px;">${data.message || 'Not enough ticket data to generate suggestions'}</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Display AI suggestions with sample tickets (all with uniform color)
+                const sampleTickets = data.sample_tickets || [];
+                container.innerHTML = data.suggestions.map((suggestion, index) => {
+                    const color = '#3182ce';  // Single professional blue color for all
+
+                    // Get 3-5 sample tickets to display
+                    const ticketsToShow = sampleTickets.slice(index * 3, (index * 3) + 5);
+                    const priorityLabels = {1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low'};
+                    const priorityColors = {
+                        1: '#c53030',
+                        2: '#dd6b20',
+                        3: '#3182ce',
+                        4: '#38a169'
+                    };
+
+                    const ticketsHTML = ticketsToShow.length > 0 ? `
+                        <details style="margin-top: 12px;">
+                            <summary style="cursor: pointer; font-weight: 600; color: ${color}; padding: 10px; background: #f7fafc; border-radius: 6px; user-select: none;">
+                                View ${ticketsToShow.length} Example Open Tickets
+                            </summary>
+                            <div style="margin-top: 12px; padding: 12px; background: #f7fafc; border-radius: 8px;">
+                                ${ticketsToShow.map(ticket => {
+                                    const createDate = ticket.create_date ? new Date(ticket.create_date).toLocaleDateString() : 'N/A';
+                                    const statusLabels = {1: 'New', 5: 'Complete', 8: 'In Progress', 9: 'Waiting Customer'};
+                                    const statusColors = {
+                                        1: '#3182ce',  // New - Blue
+                                        5: '#38a169',  // Complete - Green
+                                        8: '#dd6b20',  // In Progress - Orange
+                                        9: '#805ad5'   // Waiting - Purple
+                                    };
+                                    const description = ticket.description ? ticket.description.substring(0, 100) : 'No description';
+
+                                    return `
+                                        <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid ${priorityColors[ticket.priority] || '#718096'}; transition: all 0.2s;"
+                                             onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'"
+                                             onmouseout="this.style.boxShadow='none'">
+
+                                            <!-- Header Row -->
+                                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                                <div>
+                                                    <strong style="color: #1a202c; font-size: 1rem; display: block; margin-bottom: 4px;">${ticket.ticket_number}</strong>
+                                                    <div style="color: #2d3748; font-size: 0.9rem; font-weight: 600; margin-bottom: 6px;">
+                                                        ${ticket.title || 'No Title'}
+                                                    </div>
+                                                </div>
+                                                <div style="display: flex; gap: 6px; flex-direction: column; align-items: flex-end;">
+                                                    <span style="background: ${priorityColors[ticket.priority] || '#718096'}; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                                                        ${priorityLabels[ticket.priority] || 'Normal'}
+                                                    </span>
+                                                    <span style="background: ${statusColors[ticket.status] || '#718096'}; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                                                        ${statusLabels[ticket.status] || 'Status ' + (ticket.status || 'N/A')}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Description -->
+                                            <div style="background: #f7fafc; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+                                                <p style="color: #4a5568; font-size: 0.85rem; margin: 0; line-height: 1.5;">
+                                                    ${description}${ticket.description && ticket.description.length > 100 ? '...' : ''}
+                                                </p>
+                                            </div>
+
+                                            <!-- Details Grid -->
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; color: #718096;">
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <svg style="width: 14px; height: 14px; stroke: currentColor;" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                                    </svg>
+                                                    <span><strong>Created:</strong> ${createDate}</span>
+                                                </div>
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <svg style="width: 14px; height: 14px; stroke: currentColor;" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                                        <circle cx="12" cy="7" r="4"></circle>
+                                                    </svg>
+                                                    <span><strong>Assigned:</strong> ${ticket.assigned_resource_id ? 'Resource #' + ticket.assigned_resource_id : 'Unassigned'}</span>
+                                                </div>
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <svg style="width: 14px; height: 14px; stroke: currentColor;" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                                                    </svg>
+                                                    <span><strong>Company:</strong> ${ticket.company_id ? 'ID #' + ticket.company_id : 'N/A'}</span>
+                                                </div>
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <svg style="width: 14px; height: 14px; stroke: currentColor;" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                                        <circle cx="12" cy="12" r="10"></circle>
+                                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                                    </svg>
+                                                    <span><strong>ID:</strong> #${ticket.id || 'N/A'}</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Action Button -->
+                                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+                                                <button onclick="event.stopPropagation(); viewTicketSolution('${ticket.ticket_number}');"
+                                                        style="width: 100%; padding: 10px; background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 0.875rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;"
+                                                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(49, 130, 206, 0.4)';"
+                                                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                                                    <svg style="width: 16px; height: 16px; stroke: currentColor;" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                                        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                                                    </svg>
+                                                    <span>View AI Solution</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </details>
+                    ` : '';
+
+                    return `
+                        <div style="background: white; border-left: 4px solid ${color}; border-radius: 12px; padding: 24px; margin-bottom: 16px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.04);"
+                             onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,0.1)'; this.style.transform='translateY(-2px)';"
+                             onmouseout="this.style.boxShadow='0 2px 4px rgba(0,0,0,0.04)'; this.style.transform='translateY(0)';">
+
+                            <div style="display: flex; align-items: start; gap: 16px;">
+                                <div style="background: ${color}; color: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem; flex-shrink: 0;">
+                                    ${index + 1}
+                                </div>
+
+                                <div style="flex: 1;">
+                                    <h4 style="font-size: 1.1rem; font-weight: 700; color: #1a202c; margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px;">
+                                        ${suggestion.title}
+                                        <span style="background: ${color}20; color: ${color}; padding: 4px 12px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;">AI RECOMMENDED</span>
+                                    </h4>
+
+                                    <div style="margin-bottom: 12px; padding: 14px; background: #f7fafc; border-radius: 8px;">
+                                        <p style="color: #4a5568; font-size: 0.9rem; margin: 0; line-height: 1.6;">
+                                            <strong style="color: #2d3748;">Problem:</strong> ${suggestion.problem}
+                                        </p>
+                                    </div>
+
+                                    <div style="margin-bottom: 12px; padding: 14px; background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%); border-radius: 8px; border-left: 3px solid #48bb78;">
+                                        <p style="color: #22543d; font-size: 0.9rem; margin: 0; line-height: 1.6; font-weight: 500;">
+                                            <strong style="color: #22543d;">Solution:</strong> ${suggestion.solution}
+                                        </p>
+                                    </div>
+
+                                    <div style="padding: 10px 14px; background: #edf2f7; border-radius: 6px; border-left: 3px solid ${color};">
+                                        <p style="color: #4a5568; font-size: 0.85rem; margin: 0; line-height: 1.5;">
+                                            <strong style="color: #2d3748;">Impact:</strong> ${suggestion.usefulness}
+                                        </p>
+                                    </div>
+
+                                    ${ticketsHTML}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                console.log('Suggestions HTML set successfully. Container has content:', container.children.length > 0);
+
+                // Double-check container still exists
+                setTimeout(() => {
+                    const checkContainer = document.getElementById('common-solutions-container');
+                    console.log('Container check after 100ms:', checkContainer ? 'EXISTS' : 'MISSING', 'Has content:', checkContainer?.children.length);
+                }, 100);
+
+                // Show appropriate message based on cache status
+                if (data.cached) {
+                    const cacheAge = Math.floor(data.cache_age_seconds / 60);
+                    showToast(`Showing ${data.suggestions.length} cached suggestions (${cacheAge} min old)`, 'info');
+                } else {
+                    showToast(`AI generated ${data.suggestions.length} fresh suggestions (analyzed ${data.analyzed_tickets} tickets)`, 'success');
+                }
+
+            } catch (error) {
+                console.error('Load AI suggestions error:', error);
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <p style="color: #e53e3e; font-weight: 600;">Failed to load AI suggestions</p>
+                        <p style="color: #718096; font-size: 0.875rem; margin-top: 8px;">${error.message}</p>
+                        <button onclick="loadCommonSolutions()" class="btn btn-primary" style="margin-top: 16px; width: auto; padding: 12px 24px;">
+                            Try Again
+                        </button>
+                    </div>
+                `;
+                showToast('Failed to load AI suggestions', 'error');
+            }
+        }
+
+        // ==================== SUMMARIES FUNCTIONS ====================
+        async function loadSummaries(forceRegenerate = false) {
+            const container = document.getElementById('summaries-container');
+            const loadBtn = document.getElementById('load-summaries-btn');
+            const regenerateBtn = document.getElementById('regenerate-all-btn');
+
+            if (!container) {
+                console.error('Summaries container not found!');
+                return;
+            }
+
+            // Disable buttons
+            if (loadBtn) loadBtn.disabled = true;
+            if (regenerateBtn) regenerateBtn.disabled = true;
+
+            container.innerHTML = `
+                <div style="text-align: center; padding: 60px;">
+                    <span class="loading-spinner" style="width: 60px; height: 60px; border-width: 5px;"></span>
+                    <p style="margin-top: 24px; color: #718096; font-weight: 600; font-size: 1.1rem;">
+                        Loading summaries...
+                    </p>
+                    <p style="margin-top: 8px; color: #a0aec0; font-size: 0.9rem;">Tickets will appear as they load</p>
+                </div>
+            `;
+
+            try {
+                // Progressive loading in chunks of 20 tickets
+                const pageSize = 20;
+                const totalLimit = 200;
+                let loadedCount = 0;
+                let totalCached = 0;
+                let totalGenerated = 0;
+                let firstBatch = true;
+
+                // Keep loading pages until we hit the limit
+                for (let offset = 0; offset < totalLimit; offset += pageSize) {
+                    const url = `${API_BASE}/summaries/list?limit=${pageSize}&with_summary_only=${!forceRegenerate}&offset=${offset}`;
+
+                    try {
+                        const response = await fetch(url);
+
+                        if (!response.ok) {
+                            console.error(`Failed to load page at offset ${offset}`);
+                            continue;
+                        }
+
+                        const data = await response.json();
+
+                        // Clear loading message on first batch
+                        if (firstBatch && data.summaries && data.summaries.length > 0) {
+                            container.innerHTML = '';
+                            firstBatch = false;
+                        }
+
+                        // Display tickets immediately as they arrive
+                        if (data.summaries && data.summaries.length > 0) {
+                            data.summaries.forEach(ticket => {
+                                container.insertAdjacentHTML('beforeend', renderTicketSummaryCard(ticket));
+                                loadedCount++;
+                            });
+
+                            totalCached += data.cached_count || 0;
+                            totalGenerated += data.generated_count || 0;
+
+                            // Update stats in real-time
+                            document.getElementById('stat-summaries-total').textContent = loadedCount;
+                            document.getElementById('stat-summaries-cached').textContent = totalCached;
+                            document.getElementById('stat-summaries-generated').textContent = totalGenerated;
+
+                            console.log(`Loaded ${loadedCount} tickets so far...`);
+                        }
+
+                        // If we got fewer tickets than page size, we've reached the end
+                        if (!data.summaries || data.summaries.length < pageSize) {
+                            break;
+                        }
+
+                        // Small delay to let UI update
+                        await new Promise(resolve => setTimeout(resolve, 10));
+
+                    } catch (pageError) {
+                        console.error(`Error loading page at offset ${offset}:`, pageError);
+                        continue;
+                    }
+                }
+
+                // Show completion message
+                if (loadedCount > 0) {
+                    showToast(`Loaded ${loadedCount} summaries (${totalCached} cached, ${totalGenerated} generated)`, 'success');
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 60px; color: #a0aec0;">
+                            <svg style="width: 80px; height: 80px; margin: 0 auto 24px; stroke: #cbd5e0;" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <p style="font-size: 1.2rem; font-weight: 600; color: #4a5568;">No summaries found</p>
+                            <p style="font-size: 0.95rem; margin-top: 8px;">Click "Regenerate All" to create summaries.</p>
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Load summaries error:', error);
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px;">
+                        <p style="color: #e53e3e; font-weight: 600; font-size: 1.1rem;">Failed to load summaries</p>
+                        <p style="color: #718096; font-size: 0.9rem; margin-top: 8px;">${error.message}</p>
+                        <button onclick="loadSummaries(false)" class="btn btn-primary" style="margin-top: 20px; width: auto; padding: 12px 24px;">
+                            Try Again
+                        </button>
+                    </div>
+                `;
+                showToast('Failed to load summaries', 'error');
+            } finally {
+                // Re-enable buttons
+                if (loadBtn) loadBtn.disabled = false;
+                if (regenerateBtn) regenerateBtn.disabled = false;
+            }
+        }
+
+        // Helper function to render a single ticket summary card
+        function renderTicketSummaryCard(ticket) {
+            const statusColor = ticket.is_closed ? '#48bb78' : '#f56565';
+            const statusBg = ticket.is_closed ? '#c6f6d5' : '#fed7d7';
+            const priorityColors = {
+                1: { bg: '#fed7d7', text: '#c53030' },
+                2: { bg: '#feebc8', text: '#c05621' },
+                3: { bg: '#fefcbf', text: '#744210' },
+                4: { bg: '#c6f6d5', text: '#2f855a' }
+            };
+            const priority = priorityColors[ticket.priority] || { bg: '#e2e8f0', text: '#4a5568' };
+
+            return `
+                <div class="card" style="margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                        <div>
+                            <h4 style="font-size: 1.2rem; font-weight: 700; color: #3182ce; margin: 0 0 8px 0;">
+                                ${ticket.ticket_number || '#' + ticket.id}
+                            </h4>
+                            <p style="font-size: 1rem; color: #2d3748; font-weight: 600; margin: 0;">
+                                ${ticket.title || 'No title'}
+                            </p>
+                        </div>
+                        <span style="background: ${statusBg}; color: ${statusColor}; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase;">
+                            ${ticket.status_text}
+                        </span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: #edf2f7; border-radius: 8px;">
+                        ${ticket.company_name ? `
+                        <div style="font-size: 0.85rem;">
+                            <span style="font-weight: 700; color: #4a5568; display: block; margin-bottom: 2px;">Company</span>
+                            <span style="color: #2d3748;">${ticket.company_name}</span>
+                        </div>
+                        ` : ''}
+                        ${ticket.assigned_to ? `
+                        <div style="font-size: 0.85rem;">
+                            <span style="font-weight: 700; color: #4a5568; display: block; margin-bottom: 2px;">Assigned To</span>
+                            <span style="color: #2d3748;">${ticket.assigned_to}</span>
+                        </div>
+                        ` : ''}
+                        ${ticket.created_by ? `
+                        <div style="font-size: 0.85rem;">
+                            <span style="font-weight: 700; color: #4a5568; display: block; margin-bottom: 2px;">Created By</span>
+                            <span style="color: #2d3748;">${ticket.created_by}</span>
+                        </div>
+                        ` : ''}
+                        ${ticket.closed_by && ticket.is_closed ? `
+                        <div style="font-size: 0.85rem;">
+                            <span style="font-weight: 700; color: #4a5568; display: block; margin-bottom: 2px;">Closed By</span>
+                            <span style="color: #2d3748;">${ticket.closed_by}</span>
+                        </div>
+                        ` : ''}
+                        ${ticket.time_to_resolution && ticket.is_closed ? `
+                        <div style="font-size: 0.85rem;">
+                            <span style="font-weight: 700; color: #4a5568; display: block; margin-bottom: 2px;">Time to Resolution</span>
+                            <span style="color: #2d3748;">${ticket.time_to_resolution}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <div style="display: flex; gap: 16px; margin-bottom: 16px; font-size: 0.9rem; color: #718096; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <svg style="width: 16px; height: 16px; stroke: currentColor;" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                            Created: ${formatDate(ticket.create_date)}
+                        </div>
+                        ${ticket.completed_date && ticket.is_closed ? `
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <svg style="width: 16px; height: 16px; stroke: currentColor;" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            Completed: ${formatDate(ticket.completed_date)}
+                        </div>
+                        ` : ''}
+                        ${ticket.priority ? `
+                        <div style="background: ${priority.bg}; color: ${priority.text}; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
+                            Priority ${ticket.priority}
+                        </div>
+                        ` : ''}
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            📝 ${ticket.notes_count} notes
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            ⏱️ ${ticket.total_hours}h total
+                        </div>
+                    </div>
+
+                    <div style="background: #f7fafc; padding: 16px; border-radius: 8px; margin-bottom: 16px; max-height: 300px; overflow-y: auto;">
+                        <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9rem; line-height: 1.6; color: #4a5568; margin: 0;">
+${ticket.summary || 'No summary available'}</pre>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button onclick="window.open('${API_BASE}/solutions/ticket/${ticket.ticket_number}', '_blank')"
+                                class="btn btn-primary" style="flex: 1;">
+                            <div class="btn-icon">
+                                <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            </div>
+                            View Solution
+                        </button>
+                        <button onclick="regenerateSingleSummary(${ticket.id})"
+                                class="btn btn-outline" style="flex: 1;">
+                            <div class="btn-icon">
+                                <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            </div>
+                            Regenerate
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Helper function to display summaries
+        function displaySummaries(data) {
+            const container = document.getElementById('summaries-container');
+            if (!container) return;
+
+            // Update stats
+            document.getElementById('stat-summaries-total').textContent = data.total_count || 0;
+            document.getElementById('stat-summaries-cached').textContent = data.cached_count || 0;
+            document.getElementById('stat-summaries-generated').textContent = data.generated_count || 0;
+
+            if (!data.summaries || data.summaries.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px; color: #a0aec0;">
+                        <svg style="width: 80px; height: 80px; margin: 0 auto 24px; stroke: #cbd5e0;" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <p style="font-size: 1.2rem; font-weight: 600; color: #4a5568;">No summaries available</p>
+                        <p style="font-size: 0.95rem; margin-top: 8px;">Sync some tickets first to see summaries here.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Render summaries grid
+            const summariesHTML = data.summaries.map(ticket => renderTicketSummaryCard(ticket)).join('');
+
+            container.innerHTML = summariesHTML;
+        }
+
+        async function regenerateSingleSummary(ticketId) {
+            if (!confirm(`Regenerate summary for ticket #${ticketId}?`)) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/summaries/regenerate/${ticketId}`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                showToast('Summary regenerated successfully!', 'success');
+                loadSummaries(); // Reload all summaries
+            } catch (error) {
+                console.error('Regenerate summary error:', error);
+                showToast(`Failed to regenerate summary: ${error.message}`, 'error');
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Allow Enter key to search solutions
+        document.addEventListener('DOMContentLoaded', function() {
+            const solutionInput = document.getElementById('solution-ticket-number');
+            if (solutionInput) {
+                solutionInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        searchSolutionByTicket();
+                    }
+                });
+            }
+
+            // Dashboard quick search - Enter key
+            const dashboardInput = document.getElementById('dashboard-solution-search');
+            if (dashboardInput) {
+                dashboardInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        quickSearchSolution();
+                    }
+                });
+            }
+        });
+
+        // ==================== QUICK SOLUTION SEARCH (DASHBOARD WIDGET) ====================
+        async function quickSearchSolution() {
+            const ticketNumber = document.getElementById('dashboard-solution-search').value.trim();
+            const resultDiv = document.getElementById('quick-solution-result');
+
+            if (!ticketNumber) {
+                showToast('Please enter a ticket number', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('quick-search-btn');
+            const text = document.getElementById('quick-search-text');
+
+            btn.disabled = true;
+            text.innerHTML = '<span class="loading-spinner"></span> Searching...';
+
+            try {
+                const response = await fetch(`${API_BASE}/solutions/ticket/${ticketNumber}`);
+
+                if (response.status === 404) {
+                    const error = await response.json();
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <div style="padding: 20px; background: #fff5f5; border: 2px solid #fc8181; border-radius: 12px; text-align: center;">
+                            <p style="color: #c53030; font-weight: 600; margin: 0;">${error.detail || 'Ticket not found'}</p>
+                        </div>
+                    `;
+                    showToast(error.detail || 'Ticket not found', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                const ticket = data.ticket;
+
+                const priorityLabels = {1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low'};
+                const createDate = ticket.create_date ? new Date(ticket.create_date).toLocaleDateString() : 'N/A';
+
+                // Simple markdown to HTML
+                const formatMarkdown = (text) => {
+                    return text
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n\n/g, '<br><br>')
+                        .replace(/\n/g, '<br>');
+                };
+
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div style="background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%); border-radius: 12px; padding: 24px; border: 2px solid #48bb78;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                            <div>
+                                <h4 style="font-size: 1.2rem; font-weight: 700; color: #22543d; margin-bottom: 4px;">${data.ticket_number}</h4>
+                                <p style="color: #2f855a; font-weight: 600; margin: 0;">${data.title || 'No Title'}</p>
+                            </div>
+                            <span class="badge badge-primary">${priorityLabels[ticket.priority] || 'Unknown'}</span>
+                        </div>
+                        <div style="background: white; padding: 16px; border-radius: 8px;">
+                            <p style="color: #2d3748; font-size: 0.9rem; margin: 0; line-height: 1.6;">${formatMarkdown(data.answer.substring(0, 400))}${data.answer.length > 400 ? '...' : ''}</p>
+                        </div>
+                        <div style="margin-top: 16px; text-align: center;">
+                            <button onclick="viewFullSolution('${data.ticket_number}')" class="btn btn-outline" style="width: auto; padding: 10px 24px; font-size: 0.875rem; background: white;">
+                                <div class="btn-icon">
+                                    <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </div>
+                                View Full AI-Formatted Details
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                showToast('Solution retrieved!', 'success');
+
+            } catch (error) {
+                console.error('Quick search error:', error);
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div style="padding: 20px; background: #fff5f5; border: 2px solid #fc8181; border-radius: 12px; text-align: center;">
+                        <p style="color: #c53030; font-weight: 600; margin: 0;">Error: ${error.message}</p>
+                    </div>
+                `;
+                showToast('Search failed: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                text.textContent = 'Find Solution';
+            }
+        }
+
+        function viewFullSolution(ticketNumber) {
+            // Navigate to solutions tab and search for the ticket
+            document.getElementById('solution-ticket-number').value = ticketNumber;
+            showSection('solutions');
+            setTimeout(() => searchSolutionByTicket(), 300);
         }
 
         // ==================== INIT ====================
